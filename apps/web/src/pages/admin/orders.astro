@@ -1,0 +1,82 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="Sifarişlər İdarəetməsi">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Bütün Sifarişlər</h1>
+  </div>
+
+  <div class="bg-white shadow rounded-lg overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID / Tarix</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İstifadəçi</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Xidmət / Mövzu</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Məbləğ</th>
+          </tr>
+        </thead>
+        <tbody id="admin-orders-body" class="bg-white divide-y divide-gray-200">
+          <tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">Yüklənir...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  import axios from 'axios';
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const token = localStorage.getItem('asanyaz_admin_token');
+    if (!token) return;
+
+    try {
+      const res = await axios.get('http://localhost:3000/api/admin/orders?limit=50', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      const orders = res.data.data;
+      const tbody = document.getElementById('admin-orders-body');
+      
+      if (!tbody) return;
+
+      if (orders.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">Sifariş tapılmadı.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = orders.map((o: any) => `
+        <tr>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+            <div class="font-medium">${o.order_number}</div>
+            <div class="text-gray-500 text-xs">${new Date(o.created_at).toLocaleString('az-AZ')}</div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+            <div class="font-medium">${o.user_name}</div>
+            <div class="text-gray-500 text-xs">${o.user_email}</div>
+          </td>
+          <td class="px-6 py-4 text-sm text-gray-900">
+            <div class="font-medium truncate max-w-[200px]">${o.topic}</div>
+            <div class="text-gray-500 text-xs">${o.service_name}</div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+              ${o.status}
+            </span>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+            ${o.price} AZN
+          </td>
+        </tr>
+      `).join('');
+
+    } catch (e) {
+      console.error(e);
+      document.getElementById('admin-orders-body')!.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-red-500">Xəta baş verdi.</td></tr>';
+    }
+  });
+</script>

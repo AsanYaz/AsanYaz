@@ -1,0 +1,83 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = 'Akademik işlərin daha asan. Sərbəst iş, kurs işi, laboratoriya işi, təqdimat və digər akademik sənədləri asanlıqla sifariş edin.' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="az">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content={description} />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title} | AsanYaz</title>
+  </head>
+  <body class="min-h-screen flex flex-col">
+    <header class="bg-white border-b border-gray-100 sticky top-0 z-50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between h-16 items-center">
+          <div class="flex-shrink-0 flex items-center">
+            <a href="/" class="flex items-center gap-2">
+              <img src="/logo.png" alt="AsanYaz" class="h-8 w-auto" onerror="this.onerror=null; this.src=''; this.alt='AsanYaz'; this.className='text-2xl font-bold text-primary-500'" />
+            </a>
+          </div>
+          <nav class="hidden md:flex space-x-8">
+            <a href="/" class="text-gray-600 hover:text-primary-500 font-medium px-3 py-2 text-sm transition-colors">Ana səhifə</a>
+            <a href="/#services" class="text-gray-600 hover:text-primary-500 font-medium px-3 py-2 text-sm transition-colors">Xidmətlər</a>
+            <a href="/#how-it-works" class="text-gray-600 hover:text-primary-500 font-medium px-3 py-2 text-sm transition-colors">Necə işləyir?</a>
+            <a href="/faq" class="text-gray-600 hover:text-primary-500 font-medium px-3 py-2 text-sm transition-colors">FAQ</a>
+          </nav>
+          <div class="flex items-center space-x-4">
+            <a href="/login" class="text-gray-600 hover:text-primary-500 font-medium text-sm transition-colors">Giriş</a>
+            <a href="/register" class="btn-primary py-2 px-4 text-sm hidden sm:inline-flex">Qeydiyyat</a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex-grow">
+      <slot />
+    </main>
+
+    <footer class="bg-white border-t border-gray-100 py-12 mt-12">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div class="col-span-1 md:col-span-2">
+            <img src="/logo.png" alt="AsanYaz" class="h-8 w-auto mb-4" onerror="this.onerror=null; this.src=''; this.alt='AsanYaz'; this.className='text-2xl font-bold text-primary-500 mb-4'" />
+            <p class="text-gray-500 text-sm max-w-xs">
+              Akademik işlərin daha asan. Seç. Sifariş et. Hazır olsun.
+            </p>
+          </div>
+          <div>
+            <h3 class="text-sm font-semibold text-gray-900 tracking-wider uppercase mb-4">Platforma</h3>
+            <ul class="space-y-3">
+              <li><a href="/#services" class="text-gray-500 hover:text-primary-500 text-sm transition-colors">Xidmətlər</a></li>
+              <li><a href="/universities" class="text-gray-500 hover:text-primary-500 text-sm transition-colors">Universitetlər</a></li>
+              <li><a href="/faq" class="text-gray-500 hover:text-primary-500 text-sm transition-colors">FAQ</a></li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="text-sm font-semibold text-gray-900 tracking-wider uppercase mb-4">Qaydalar</h3>
+            <ul class="space-y-3">
+              <li><a href="/terms" class="text-gray-500 hover:text-primary-500 text-sm transition-colors">İstifadə şərtləri</a></li>
+              <li><a href="/privacy" class="text-gray-500 hover:text-primary-500 text-sm transition-colors">Məxfilik siyasəti</a></li>
+              <li><a href="/contact" class="text-gray-500 hover:text-primary-500 text-sm transition-colors">Əlaqə</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="mt-12 border-t border-gray-100 pt-8 flex justify-between items-center">
+          <p class="text-sm text-gray-400">
+            &copy; {new Date().getFullYear()} AsanYaz. Bütün hüquqlar qorunur.
+          </p>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

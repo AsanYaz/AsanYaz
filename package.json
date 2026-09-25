@@ -1,0 +1,29 @@
+{
+  "name": "asanyaz",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AsanYaz - Akademik işlərin daha asan",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\" \"npm run dev:worker\"",
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:worker": "npm run dev --workspace=apps/worker",
+    "build": "npm run build --workspaces",
+    "build:api": "npm run build --workspace=apps/api",
+    "build:web": "npm run build --workspace=apps/web",
+    "build:worker": "npm run build --workspace=apps/worker",
+    "db:migrate": "npm run migration:run --workspace=packages/database",
+    "db:seed": "npm run seed --workspace=packages/database",
+    "lint": "eslint . --ext .ts,.tsx",
+    "clean": "rimraf apps/*/dist packages/*/dist"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.4.0"
+  }
+}

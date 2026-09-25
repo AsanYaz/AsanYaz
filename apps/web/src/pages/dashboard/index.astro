@@ -1,0 +1,159 @@
+---
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+---
+
+<DashboardLayout title="Dashboard">
+  <div class="flex justify-between items-end mb-8">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900" id="welcome-message">Salam</h1>
+      <p class="text-gray-500 mt-1">Növbəti sifarişinizi yaratmağa hazırsınız?</p>
+    </div>
+    <div class="hidden sm:block">
+      <a href="/dashboard/new-order" class="btn-primary py-2 px-4 shadow-sm">
+        + Yeni sifariş
+      </a>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+    {/* Active Orders Widget */}
+    <div class="card p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold text-gray-900">Aktiv sifarişlər</h2>
+        <a href="/dashboard/orders" class="text-sm text-primary-500 font-medium hover:text-primary-600">Hamısına bax &rarr;</a>
+      </div>
+      
+      <div id="active-orders-container" class="space-y-4">
+        <div class="flex justify-center items-center h-32">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+        </div>
+      </div>
+    </div>
+
+    {/* Recent Archive Widget */}
+    <div class="card p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold text-gray-900">Son sənədlər (Arxiv)</h2>
+        <a href="/dashboard/archive" class="text-sm text-primary-500 font-medium hover:text-primary-600">Hamısına bax &rarr;</a>
+      </div>
+      
+      <div id="archive-container" class="space-y-4">
+        <div class="flex justify-center items-center h-32">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</DashboardLayout>
+
+<script>
+  import axios from 'axios';
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    // Set welcome message
+    const userStr = localStorage.getItem('asanyaz_user');
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      const welcomeEl = document.getElementById('welcome-message');
+      if (welcomeEl) welcomeEl.textContent = `Salam, ${user.firstName}`;
+    }
+
+    const token = localStorage.getItem('asanyaz_token');
+    const api = axios.create({
+      baseURL: 'http://localhost:3000/api',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    // Helper functions
+    const formatDate = (dateStr: string) => {
+      return new Date(dateStr).toLocaleDateString('az-AZ', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    };
+
+    const getStatusLabel = (status: string) => {
+      const labels: Record<string, {text: string, class: string}> = {
+        'awaiting_payment': {text: 'Ödəniş gözlənilir', class: 'bg-yellow-100 text-yellow-800'},
+        'paid': {text: 'Ödəniş edildi', class: 'bg-blue-100 text-blue-800'},
+        'queued': {text: 'Sifariş qəbul edildi', class: 'bg-gray-100 text-gray-800'},
+        'researching': {text: 'Materiallar hazırlanır', class: 'bg-purple-100 text-purple-800'},
+        'generating': {text: 'Sənəd yaradılır', class: 'bg-indigo-100 text-indigo-800'},
+        'formatting': {text: 'Formatlaşdırılır', class: 'bg-pink-100 text-pink-800'},
+        'quality_check': {text: 'Yoxlanılır', class: 'bg-orange-100 text-orange-800'},
+        'completed': {text: 'Tamamlandı', class: 'bg-green-100 text-green-800'},
+        'failed': {text: 'Xəta', class: 'bg-red-100 text-red-800'},
+      };
+      const def = {text: status, class: 'bg-gray-100 text-gray-800'};
+      const found = labels[status] || def;
+      return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${found.class}">${found.text}</span>`;
+    };
+
+    // Load active orders
+    try {
+      const activeRes = await api.get('/orders/active');
+      const activeContainer = document.getElementById('active-orders-container');
+      
+      if (activeContainer) {
+        if (!activeRes.data.data || activeRes.data.data.length === 0) {
+          activeContainer.innerHTML = `
+            <div class="text-center py-8">
+              <p class="text-gray-500 text-sm mb-4">Aktiv sifarişiniz yoxdur.</p>
+              <a href="/dashboard/new-order" class="text-primary-500 text-sm font-medium hover:underline">Birinci sifarişinizi yaradın</a>
+            </div>
+          `;
+        } else {
+          const ordersHtml = activeRes.data.data.slice(0, 3).map((order: any) => `
+            <div class="p-4 border border-gray-100 rounded-lg bg-gray-50 hover:bg-white hover:border-gray-200 transition-colors">
+              <div class="flex justify-between items-start mb-2">
+                <h3 class="font-semibold text-gray-900 truncate pr-4">${order.topic}</h3>
+                ${getStatusLabel(order.status)}
+              </div>
+              <div class="flex justify-between items-center text-sm text-gray-500">
+                <span>${order.service_name}</span>
+                <span>${formatDate(order.created_at)}</span>
+              </div>
+            </div>
+          `).join('');
+          activeContainer.innerHTML = ordersHtml;
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      const activeContainer = document.getElementById('active-orders-container');
+      if (activeContainer) activeContainer.innerHTML = '<p class="text-red-500 text-sm">Məlumatları yükləmək mümkün olmadı.</p>';
+    }
+
+    // Load archive
+    try {
+      const archiveRes = await api.get('/orders/archive?limit=3');
+      const archiveContainer = document.getElementById('archive-container');
+      
+      if (archiveContainer) {
+        if (!archiveRes.data.data || archiveRes.data.data.length === 0) {
+          archiveContainer.innerHTML = `
+            <div class="text-center py-8">
+              <p class="text-gray-500 text-sm">Arxiviniz hələlik boşdur.</p>
+            </div>
+          `;
+        } else {
+          const archiveHtml = archiveRes.data.data.map((order: any) => `
+            <div class="p-4 border border-gray-100 rounded-lg flex justify-between items-center group hover:border-primary-200 hover:shadow-sm transition-all">
+              <div class="flex-1 min-w-0 pr-4">
+                <h3 class="font-semibold text-gray-900 truncate">${order.topic}</h3>
+                <p class="text-sm text-gray-500 truncate">${order.service_name} • ${formatDate(order.completed_at)}</p>
+              </div>
+              <a href="/dashboard/orders/${order.id}" class="flex-shrink-0 text-primary-500 hover:text-primary-600 bg-primary-50 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+              </a>
+            </div>
+          `).join('');
+          archiveContainer.innerHTML = archiveHtml;
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      const archiveContainer = document.getElementById('archive-container');
+      if (archiveContainer) archiveContainer.innerHTML = '<p class="text-red-500 text-sm">Məlumatları yükləmək mümkün olmadı.</p>';
+    }
+  });
+</script>

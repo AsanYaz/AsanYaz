@@ -1,0 +1,81 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="Admin Dashboard">
+  <h1 class="text-2xl font-bold text-gray-900 mb-6">Ümumi Statistika</h1>
+  
+  <div id="stats-container" class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+    <div class="bg-white overflow-hidden shadow rounded-lg animate-pulse h-24"></div>
+    <div class="bg-white overflow-hidden shadow rounded-lg animate-pulse h-24"></div>
+    <div class="bg-white overflow-hidden shadow rounded-lg animate-pulse h-24"></div>
+    <div class="bg-white overflow-hidden shadow rounded-lg animate-pulse h-24"></div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div class="bg-white shadow rounded-lg p-6">
+      <h2 class="text-lg font-medium text-gray-900 mb-4">Sistem Vəziyyəti</h2>
+      <ul class="space-y-3 text-sm text-gray-600">
+        <li class="flex justify-between border-b pb-2">
+          <span>API Server:</span> <span class="text-green-600 font-medium">Onlayn</span>
+        </li>
+        <li class="flex justify-between border-b pb-2">
+          <span>Database:</span> <span class="text-green-600 font-medium">Bağlıdır</span>
+        </li>
+        <li class="flex justify-between border-b pb-2">
+          <span>Redis / BullMQ:</span> <span class="text-green-600 font-medium">Aktiv</span>
+        </li>
+        <li class="flex justify-between border-b pb-2">
+          <span>Document Service:</span> <span class="text-green-600 font-medium">Onlayn</span>
+        </li>
+      </ul>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  import axios from 'axios';
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const token = localStorage.getItem('asanyaz_admin_token');
+    if (!token) return;
+
+    try {
+      const res = await axios.get('http://localhost:3000/api/admin/stats', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      const stats = res.data.data;
+      
+      document.getElementById('stats-container')!.innerHTML = `
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+          <div class="px-4 py-5 sm:p-6">
+            <dt class="text-sm font-medium text-gray-500 truncate">Ümumi Gəlir</dt>
+            <dd class="mt-1 text-3xl font-semibold text-gray-900">${stats.totalRevenue.toFixed(2)} AZN</dd>
+          </div>
+        </div>
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+          <div class="px-4 py-5 sm:p-6">
+            <dt class="text-sm font-medium text-gray-500 truncate">Aktiv Sifarişlər</dt>
+            <dd class="mt-1 text-3xl font-semibold text-primary-600">${stats.activeOrders}</dd>
+          </div>
+        </div>
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+          <div class="px-4 py-5 sm:p-6">
+            <dt class="text-sm font-medium text-gray-500 truncate">Ümumi Sifarişlər</dt>
+            <dd class="mt-1 text-3xl font-semibold text-gray-900">${stats.totalOrders}</dd>
+          </div>
+        </div>
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+          <div class="px-4 py-5 sm:p-6">
+            <dt class="text-sm font-medium text-gray-500 truncate">İstifadəçilər</dt>
+            <dd class="mt-1 text-3xl font-semibold text-gray-900">${stats.totalUsers}</dd>
+          </div>
+        </div>
+      `;
+    } catch (e) {
+      console.error(e);
+      document.getElementById('stats-container')!.innerHTML = '<p class="text-red-500">Statistikanı yükləmək mümkün olmadı.</p>';
+    }
+  });
+</script>

@@ -1,3 +1,7 @@
+<img width="4657" height="838" alt="AsanYaz" src="https://github.com/user-attachments/assets/f6fe6dc4-a87b-4c55-97f4-a5697c346b70" />
+
+
+
 # AsanYaz - Akademik Sənəd Platforması
 
 AsanYaz is an automated platform for Azerbaijani university students to order and generate academic documents (assignments, essays, presentations, etc.) formatted according to their specific university standards.

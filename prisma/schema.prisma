@@ -1,0 +1,653 @@
+// AsanYaz Production Database Schema
+// PostgreSQL via Supabase
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum UserRole {
+  customer
+  admin
+  super_admin
+}
+
+enum UserStatus {
+  active
+  suspended
+  deleted
+}
+
+enum ServiceStatus {
+  active
+  inactive
+  archived
+}
+
+enum UniversityStatus {
+  active
+  inactive
+  archived
+}
+
+enum TemplateStatus {
+  draft
+  processing
+  review
+  active
+  inactive
+  archived
+}
+
+enum OrderStatus {
+  draft
+  awaiting_payment
+  paid
+  queued
+  researching
+  generating
+  formatting
+  quality_check
+  completed
+  failed
+  cancelled
+  refunded
+}
+
+enum PaymentStatus {
+  pending
+  processing
+  completed
+  failed
+  refunded
+  partially_refunded
+  cancelled
+  expired
+}
+
+enum AIJobStatus {
+  pending
+  processing
+  completed
+  failed
+  cancelled
+  retrying
+}
+
+enum AIJobType {
+  template_analysis
+  research
+  outline
+  content_generation
+  quality_check
+  citation_generation
+}
+
+enum FileType {
+  docx
+  pdf
+  pptx
+  template_docx
+  template_pdf
+  template_pptx
+  template_json
+  reference
+  user_upload
+}
+
+enum NotificationType {
+  email_verification
+  password_reset
+  payment_confirmation
+  order_received
+  order_processing
+  order_completed
+  order_failed
+  system
+}
+
+enum NotificationStatus {
+  pending
+  sent
+  failed
+  read
+}
+
+enum AuditAction {
+  create
+  read
+  update
+  delete
+  login
+  logout
+  payment
+  order_status_change
+  template_activation
+  admin_action
+}
+
+// ============================================================
+// USERS & AUTH
+// ============================================================
+
+model User {
+  id            String     @id @default(uuid()) @db.Uuid
+  supabaseId    String     @unique @map("supabase_id")
+  email         String     @unique
+  role          UserRole   @default(customer)
+  status        UserStatus @default(active)
+  emailVerified Boolean    @default(false) @map("email_verified")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+  deletedAt     DateTime?  @map("deleted_at")
+
+  profile        Profile?
+  orders         Order[]
+  payments       Payment[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]     @relation("AuditUser")
+  adminAuditLogs AuditLog[]     @relation("AuditAdmin")
+
+  @@map("users")
+}
+
+model Profile {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @unique @map("user_id") @db.Uuid
+  firstName     String?  @map("first_name")
+  lastName      String?  @map("last_name")
+  phone         String?
+  universityId  String?  @map("university_id") @db.Uuid
+  facultyId     String?  @map("faculty_id") @db.Uuid
+  departmentId  String?  @map("department_id") @db.Uuid
+  studentGroup  String?  @map("student_group")
+  studentId     String?  @map("student_id")
+  preferredLang String   @default("az") @map("preferred_lang")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  university University? @relation(fields: [universityId], references: [id], onDelete: SetNull)
+  faculty    Faculty?    @relation(fields: [facultyId], references: [id], onDelete: SetNull)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  @@map("profiles")
+}
+
+// ============================================================
+// SERVICES
+// ============================================================
+
+model Service {
+  id                   String        @id @default(uuid()) @db.Uuid
+  name                 String
+  slug                 String        @unique
+  description          String?
+  priceAzn             Decimal       @map("price_azn") @db.Decimal(10, 2)
+  status               ServiceStatus @default(active)
+  sortOrder            Int           @default(0) @map("sort_order")
+  outputFormats        String[]      @default(["docx", "pdf"]) @map("output_formats")
+  requiresPresentation Boolean       @default(false) @map("requires_presentation")
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+
+  fields    ServiceField[]
+  templates Template[]
+  orders    Order[]
+
+  @@map("services")
+}
+
+model ServiceField {
+  id         String   @id @default(uuid()) @db.Uuid
+  serviceId  String   @map("service_id") @db.Uuid
+  fieldName  String   @map("field_name")
+  fieldLabel String   @map("field_label")
+  fieldType  String   @map("field_type") // text, textarea, number, select, file
+  isRequired Boolean  @default(true) @map("is_required")
+  options    Json? // For select fields
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@map("service_fields")
+}
+
+// ============================================================
+// UNIVERSITIES
+// ============================================================
+
+model University {
+  id        String           @id @default(uuid()) @db.Uuid
+  name      String
+  shortName String?          @map("short_name")
+  slug      String           @unique
+  city      String?
+  status    UniversityStatus @default(active)
+  logoUrl   String?          @map("logo_url")
+  sortOrder Int              @default(0) @map("sort_order")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  faculties Faculty[]
+  templates Template[]
+  profiles  Profile[]
+  orders    Order[]
+
+  @@map("universities")
+}
+
+model Faculty {
+  id           String           @id @default(uuid()) @db.Uuid
+  universityId String           @map("university_id") @db.Uuid
+  name         String
+  slug         String
+  status       UniversityStatus @default(active)
+  sortOrder    Int              @default(0) @map("sort_order")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  university  University   @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  departments Department[]
+  templates   Template[]
+  profiles    Profile[]
+  orders      Order[]
+
+  @@unique([universityId, slug])
+  @@map("faculties")
+}
+
+model Department {
+  id        String           @id @default(uuid()) @db.Uuid
+  facultyId String           @map("faculty_id") @db.Uuid
+  name      String
+  slug      String
+  status    UniversityStatus @default(active)
+  sortOrder Int              @default(0) @map("sort_order")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  faculty   Faculty    @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  templates Template[]
+  profiles  Profile[]
+  orders    Order[]
+
+  @@unique([facultyId, slug])
+  @@map("departments")
+}
+
+// ============================================================
+// TEMPLATES
+// ============================================================
+
+model Template {
+  id             String         @id @default(uuid()) @db.Uuid
+  universityId   String         @map("university_id") @db.Uuid
+  facultyId      String?        @map("faculty_id") @db.Uuid
+  departmentId   String?        @map("department_id") @db.Uuid
+  serviceId      String         @map("service_id") @db.Uuid
+  name           String
+  language       String         @default("az")
+  version        Int            @default(1)
+  status         TemplateStatus @default(draft)
+  sourceFileUrl  String?        @map("source_file_url")
+  sourceFileType String?        @map("source_file_type")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  university University        @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  faculty    Faculty?          @relation(fields: [facultyId], references: [id], onDelete: SetNull)
+  department Department?       @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  service    Service           @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  versions   TemplateVersion[]
+  analysis   TemplateAnalysis?
+  orders     Order[]
+
+  @@index([universityId, serviceId, status])
+  @@index([universityId, facultyId, serviceId, status])
+  @@index([universityId, facultyId, departmentId, serviceId, status])
+  @@map("templates")
+}
+
+model TemplateVersion {
+  id         String   @id @default(uuid()) @db.Uuid
+  templateId String   @map("template_id") @db.Uuid
+  version    Int
+  fileUrl    String   @map("file_url")
+  changelog  String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, version])
+  @@map("template_versions")
+}
+
+model TemplateAnalysis {
+  id               String    @id @default(uuid()) @db.Uuid
+  templateId       String    @unique @map("template_id") @db.Uuid
+  pageSize         String?   @map("page_size")
+  margins          Json? // { top, bottom, left, right }
+  fonts            Json? // [{ name, size, usage }]
+  lineSpacing      Decimal?  @map("line_spacing") @db.Decimal(4, 2)
+  paragraphSpacing Json?     @map("paragraph_spacing")
+  headingHierarchy Json?     @map("heading_hierarchy")
+  titlePage        Json?     @map("title_page")
+  headerConfig     Json?     @map("header_config")
+  footerConfig     Json?     @map("footer_config")
+  pageNumbering    Json?     @map("page_numbering")
+  sectionOrdering  Json?     @map("section_ordering")
+  requiredSections Json?     @map("required_sections")
+  optionalSections Json?     @map("optional_sections")
+  tableConfig      Json?     @map("table_config")
+  figureConfig     Json?     @map("figure_config")
+  captionConfig    Json?     @map("caption_config")
+  universityInfo   Json?     @map("university_info")
+  rawAnalysis      Json?     @map("raw_analysis")
+  isConfirmed      Boolean   @default(false) @map("is_confirmed")
+  confirmedAt      DateTime? @map("confirmed_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@map("template_analysis")
+}
+
+// ============================================================
+// ORDERS
+// ============================================================
+
+model Order {
+  id              String      @id @default(uuid()) @db.Uuid
+  orderNumber     String      @unique @map("order_number")
+  userId          String      @map("user_id") @db.Uuid
+  serviceId       String      @map("service_id") @db.Uuid
+  universityId    String      @map("university_id") @db.Uuid
+  facultyId       String?     @map("faculty_id") @db.Uuid
+  departmentId    String?     @map("department_id") @db.Uuid
+  templateId      String?     @map("template_id") @db.Uuid
+  topic           String
+  customTitle     String?     @map("custom_title")
+  requestedLength String?     @map("requested_length")
+  additionalReqs  String?     @map("additional_requirements")
+  studentName     String?     @map("student_name")
+  instructorName  String?     @map("instructor_name")
+  instructorTitle String?     @map("instructor_title")
+  priceAzn        Decimal     @map("price_azn") @db.Decimal(10, 2)
+  status          OrderStatus @default(draft)
+  statusMessage   String?     @map("status_message")
+  errorMessage    String?     @map("error_message")
+  retryCount      Int         @default(0) @map("retry_count")
+  completedAt     DateTime?   @map("completed_at")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+  deletedAt       DateTime?   @map("deleted_at")
+
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  service    Service        @relation(fields: [serviceId], references: [id])
+  university University     @relation(fields: [universityId], references: [id])
+  faculty    Faculty?       @relation(fields: [facultyId], references: [id])
+  department Department?    @relation(fields: [departmentId], references: [id])
+  template   Template?      @relation(fields: [templateId], references: [id])
+  inputs     OrderInput[]
+  files      OrderFile[]
+  versions   OrderVersion[]
+  payments   Payment[]
+  aiJobs     AIJob[]
+  citations  Citation[]
+
+  @@index([userId, status])
+  @@index([userId, createdAt])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderInput {
+  id         String   @id @default(uuid()) @db.Uuid
+  orderId    String   @map("order_id") @db.Uuid
+  fieldName  String   @map("field_name")
+  fieldValue String   @map("field_value")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, fieldName])
+  @@map("order_inputs")
+}
+
+model OrderFile {
+  id           String   @id @default(uuid()) @db.Uuid
+  orderId      String   @map("order_id") @db.Uuid
+  fileType     FileType @map("file_type")
+  fileName     String   @map("file_name")
+  fileSize     Int      @map("file_size")
+  mimeType     String   @map("mime_type")
+  storageKey   String   @map("storage_key")
+  version      Int      @default(1)
+  isUserUpload Boolean  @default(false) @map("is_user_upload")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, fileType])
+  @@map("order_files")
+}
+
+model OrderVersion {
+  id          String   @id @default(uuid()) @db.Uuid
+  orderId     String   @map("order_id") @db.Uuid
+  version     Int
+  changelog   String?
+  generatedAt DateTime @map("generated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, version])
+  @@map("order_versions")
+}
+
+// ============================================================
+// PAYMENTS
+// ============================================================
+
+model Payment {
+  id                String        @id @default(uuid()) @db.Uuid
+  orderId           String        @map("order_id") @db.Uuid
+  userId            String        @map("user_id") @db.Uuid
+  amountAzn         Decimal       @map("amount_azn") @db.Decimal(10, 2)
+  currency          String        @default("AZN")
+  status            PaymentStatus @default(pending)
+  provider          String // payriff, etc.
+  providerOrderId   String?       @map("provider_order_id")
+  providerSessionId String?       @map("provider_session_id")
+  paymentUrl        String?       @map("payment_url")
+  idempotencyKey    String        @unique @map("idempotency_key")
+  metadata          Json?
+  paidAt            DateTime?     @map("paid_at")
+  failedAt          DateTime?     @map("failed_at")
+  refundedAt        DateTime?     @map("refunded_at")
+  expiresAt         DateTime?     @map("expires_at")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  order        Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions PaymentTransaction[]
+
+  @@index([orderId])
+  @@index([userId])
+  @@index([providerOrderId])
+  @@index([idempotencyKey])
+  @@map("payments")
+}
+
+model PaymentTransaction {
+  id          String   @id @default(uuid()) @db.Uuid
+  paymentId   String   @map("payment_id") @db.Uuid
+  type        String // charge, refund, partial_refund
+  amountAzn   Decimal  @map("amount_azn") @db.Decimal(10, 2)
+  status      String
+  providerRef String?  @map("provider_ref")
+  rawResponse Json?    @map("raw_response")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@map("payment_transactions")
+}
+
+// ============================================================
+// AI SYSTEM
+// ============================================================
+
+model AIJob {
+  id               String      @id @default(uuid()) @db.Uuid
+  orderId          String      @map("order_id") @db.Uuid
+  jobType          AIJobType   @map("job_type")
+  status           AIJobStatus @default(pending)
+  provider         String
+  model            String
+  promptTokens     Int?        @map("prompt_tokens")
+  completionTokens Int?        @map("completion_tokens")
+  totalTokens      Int?        @map("total_tokens")
+  costEstimate     Decimal?    @map("cost_estimate") @db.Decimal(10, 6)
+  errorMessage     String?     @map("error_message")
+  retryCount       Int         @default(0) @map("retry_count")
+  startedAt        DateTime?   @map("started_at")
+  completedAt      DateTime?   @map("completed_at")
+  createdAt        DateTime    @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, jobType])
+  @@index([status])
+  @@map("ai_jobs")
+}
+
+model AIUsage {
+  id                    String   @id @default(uuid()) @db.Uuid
+  provider              String
+  model                 String
+  date                  DateTime @db.Date
+  totalRequests         Int      @default(0) @map("total_requests")
+  totalPromptTokens     Int      @default(0) @map("total_prompt_tokens")
+  totalCompletionTokens Int      @default(0) @map("total_completion_tokens")
+  totalCost             Decimal  @default(0) @map("total_cost") @db.Decimal(10, 6)
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@unique([provider, model, date])
+  @@map("ai_usage")
+}
+
+// ============================================================
+// RESEARCH & CITATIONS
+// ============================================================
+
+model ResearchSource {
+  id         String   @id @default(uuid()) @db.Uuid
+  title      String
+  authors    String[]
+  journal    String?
+  year       Int?
+  doi        String?
+  url        String?
+  abstract   String?
+  isVerified Boolean  @default(false) @map("is_verified")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  citations Citation[]
+
+  @@index([doi])
+  @@map("research_sources")
+}
+
+model Citation {
+  id           String   @id @default(uuid()) @db.Uuid
+  orderId      String   @map("order_id") @db.Uuid
+  sourceId     String?  @map("source_id") @db.Uuid
+  citationText String   @map("citation_text")
+  inTextRef    String?  @map("in_text_ref")
+  pageNumber   Int?     @map("page_number")
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  order  Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  source ResearchSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  @@map("citations")
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+
+model Notification {
+  id        String             @id @default(uuid()) @db.Uuid
+  userId    String             @map("user_id") @db.Uuid
+  type      NotificationType
+  status    NotificationStatus @default(pending)
+  subject   String?
+  body      String?
+  metadata  Json?
+  sentAt    DateTime?          @map("sent_at")
+  readAt    DateTime?          @map("read_at")
+  createdAt DateTime           @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+// ============================================================
+// AUDIT LOG
+// ============================================================
+
+model AuditLog {
+  id         String      @id @default(uuid()) @db.Uuid
+  userId     String?     @map("user_id") @db.Uuid
+  adminId    String?     @map("admin_id") @db.Uuid
+  action     AuditAction
+  entityType String      @map("entity_type")
+  entityId   String?     @map("entity_id")
+  details    Json?
+  ipAddress  String?     @map("ip_address")
+  userAgent  String?     @map("user_agent")
+  createdAt  DateTime    @default(now()) @map("created_at")
+
+  user  User? @relation("AuditUser", fields: [userId], references: [id], onDelete: SetNull)
+  admin User? @relation("AuditAdmin", fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================================
+// ADMIN USERS (bootstrap tracking)
+// ============================================================
+
+model AdminBootstrap {
+  id             String   @id @default(uuid()) @db.Uuid
+  email          String   @unique
+  userId         String?  @unique @map("user_id") @db.Uuid
+  bootstrappedAt DateTime @default(now()) @map("bootstrapped_at")
+  ipAddress      String?  @map("ip_address")
+
+  @@map("admin_bootstrap")
+}

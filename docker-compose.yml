@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: asanyaz-web
+    container_name: asanyaz_web
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      # All environment variables should be provided in .env file
+    env_file:
+      - .env
+    depends_on:
+      - worker
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    image: asanyaz-worker
+    container_name: asanyaz_worker
+    restart: always
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - .env

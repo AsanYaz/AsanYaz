@@ -1,0 +1,34 @@
+FROM node:18-alpine AS base
+
+# Install dependencies
+FROM base AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# Build the app (we need typescript compilation for worker)
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN npm run build
+# Compile worker TS directly if not handled by Next.js build
+RUN npx tsc --project tsconfig.json || true
+
+# Production image
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+# Copy necessary files
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/prisma ./prisma
+# Assuming ts-node or compiled JS is used to run the worker
+# In a real setup, we should have a build step for the worker specifically
+# For this example, we'll use ts-node via npx
+RUN npx prisma generate
+
+CMD ["npx", "ts-node", "--transpile-only", "src/workers/index.ts"]

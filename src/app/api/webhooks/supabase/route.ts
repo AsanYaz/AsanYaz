@@ -15,10 +15,14 @@ export async function POST(request: Request) {
     }
 
     const expectedHeader = `Bearer ${WEBHOOK_SECRET}`;
-    if (
-      authHeader.length !== expectedHeader.length ||
-      !crypto.timingSafeEqual(Buffer.from(authHeader), Buffer.from(expectedHeader))
-    ) {
+    
+    // FIX: Convert both strings to Buffers first. 
+    // crypto.timingSafeEqual will throw a TypeError (causing a 500) if the buffers have different byte lengths.
+    // By checking buffer lengths instead of string lengths, we prevent the internal crash.
+    const authBuf = Buffer.from(authHeader);
+    const expectedBuf = Buffer.from(expectedHeader);
+    
+    if (authBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(authBuf, expectedBuf)) {
       return NextResponse.json({ error: 'Unauthorized payload signature' }, { status: 401 });
     }
 
@@ -33,25 +37,40 @@ export async function POST(request: Request) {
     if (payload.type === 'INSERT' && payload.table === 'users' && payload.schema === 'auth') {
       const user = payload.record;
       
-      // Use Upsert to ensure idempotency (in case of webhook retries)
+      if (!user || !user.id) {
+        throw new Error('User record or user ID missing in payload');
+      }
+      
+      // FIX: Use Upsert to prevent P2002 Unique Constraint race conditions during webhook retries
       await prisma.$transaction(async (tx) => {
         const userEmail = user.email || '';
-        const userMeta = user.raw_user_meta_data || {};
+        let userMeta = user.raw_user_meta_data || {};
         
-        const existingUser = await tx.user.findUnique({ where: { supabaseId: user.id } });
+        // Safety check if meta data is somehow stringified
+        if (typeof userMeta === 'string') {
+          try { userMeta = JSON.parse(userMeta); } catch (e) {}
+        }
         
-        if (!existingUser) {
-          const newUser = await tx.user.create({
-            data: {
-              supabaseId: user.id,
-              email: userEmail,
-              emailVerified: !!user.email_confirmed_at,
-            }
-          });
+        const upsertedUser = await tx.user.upsert({
+          where: { supabaseId: user.id },
+          update: {
+            email: userEmail,
+            emailVerified: !!user.email_confirmed_at,
+          },
+          create: {
+            supabaseId: user.id,
+            email: userEmail,
+            emailVerified: !!user.email_confirmed_at,
+          }
+        });
 
+        // Ensure we don't recreate profile if the user upsert updated an existing user
+        const existingProfile = await tx.profile.findUnique({ where: { userId: upsertedUser.id } });
+        
+        if (!existingProfile) {
           await tx.profile.create({
             data: {
-              userId: newUser.id,
+              userId: upsertedUser.id,
               firstName: userMeta.first_name || '',
               lastName: userMeta.last_name || '',
             }
@@ -60,13 +79,16 @@ export async function POST(request: Request) {
       });
     } else if (payload.type === 'UPDATE' && payload.table === 'users' && payload.schema === 'auth') {
       const user = payload.record;
-      // Update user verification status if changed
-      await prisma.user.update({
-        where: { supabaseId: user.id },
-        data: {
-          emailVerified: !!user.email_confirmed_at
-        }
-      });
+      
+      if (user && user.id) {
+        // FIX: Use updateMany to prevent P2025 Record Not Found errors if user doesn't exist yet
+        await prisma.user.updateMany({
+          where: { supabaseId: user.id },
+          data: {
+            emailVerified: !!user.email_confirmed_at
+          }
+        });
+      }
     }
 
     return NextResponse.json({ success: true });

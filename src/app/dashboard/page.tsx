@@ -28,7 +28,7 @@ export default async function DashboardPage() {
   const firstName = dbUser?.profile?.firstName || 'İstifadəçi';
 
   return (
-    <div className="container" style={{ padding: '60px 0' }}>
+    <div className="container" style={{ paddingTop: '120px', paddingBottom: '60px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
         <div>
           <h1 style={{ fontSize: '32px', marginBottom: '8px' }}>Salam, {firstName}</h1>

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter, Outfit } from 'next/font/google';
+import NavAuth from '@/components/NavAuth';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
@@ -28,10 +29,7 @@ export default function RootLayout({
               <a href="/how-it-works">Necə işləyir?</a>
               <a href="/faq">FAQ</a>
             </div>
-            <div className="auth-links">
-              <a href="/login" className="btn btn-secondary">Giriş</a>
-              <a href="/register" className="btn btn-primary">Qeydiyyat</a>
-            </div>
+            <NavAuth />
           </div>
         </nav>
         
